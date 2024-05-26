@@ -8,7 +8,7 @@ cmake_minimum_required (VERSION 3.10)
 # turn on -03 for best performance
 add_definitions(-std=c++14 -O3)
 
-set(CXX_FLAGS "-pthread -fPIC")
+set(CXX_FLAGS "-pthread -fPIC -Wall")
 set(CMAKE_CXX_FLAGS "${CXX_FLAGS}")
 
 set(sources icp1-main.cpp helper.cpp)

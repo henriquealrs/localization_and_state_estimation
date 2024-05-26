@@ -2,6 +2,8 @@
 // Dec 21 2020
 // Aaron Brown
 
+#include <memory>
+#include <pcl/common/transforms.h>
 using namespace std;
 
 #include <string>
@@ -16,7 +18,24 @@ Eigen::Matrix4d ICP(PointCloudT::Ptr target, PointCloudT::Ptr source, Pose start
 	Eigen::Matrix4d transformation_matrix = Eigen::Matrix4d::Identity ();
 
 	//TODO: complete the ICP function and return the corrected transform
+    Eigen::Matrix4d init_transform = transform2D(startingPose.theta, startingPose.position.x, startingPose.position.y);
+    PointCloudT::Ptr transform_src = std::make_shared<PointCloudT>();
+    pcl::transformPointCloud(*source, *transform_src, init_transform);
 
+    pcl::IterativeClosestPoint<PointT, PointT> icp;
+    icp.setInputSource(transform_src);
+    icp.setInputTarget(target);
+    icp.setMaximumIterations(iterations);
+    PointCloudT icp_out;
+    icp.align(icp_out);
+    if(icp.hasConverged())
+    {
+        const auto ret = icp.getFinalTransformation().cast<double>();
+        std::cout << "Converged (with score " << icp.getFitnessScore() << ") to:\n" << ret << "\n\n";
+        return ret;
+    }
+    
+    std::cout << "No Convergence\n";
 	return transformation_matrix;
 
 }
@@ -62,12 +81,12 @@ int main(){
 	vector<Vect2> movement = {Vect2(0.5,pi/12)};
 
 	// Part 2. TODO: localize after several steps
-	if(false){ // Change to true
+	if(true){ // Change to true
 		movement.push_back(Vect2(0.8, pi/10));
 		movement.push_back(Vect2(1.0, pi/6));
 	}
 	// Part 3. TODO: localize after randomly moving around the whole room
-	if(false){ // Change to true
+	if(true){ // Change to true
 		srand(time(0));
 		for(int i = 0; i < 10; i++){
 			double mag = 0.5 * ((double) rand() / (RAND_MAX)) + 0.5;
@@ -80,7 +99,7 @@ int main(){
 	Pose location(Point(0,0), 0);
 	PointCloudT::Ptr scan;
 	int count = 0;
-	for( Vect2 move : movement ){
+	for(const Vect2& move : movement ){
 
 		// execute move
 		lidar.Move(move.mag, move.theta);
@@ -92,7 +111,7 @@ int main(){
 		renderPointCloud(viewer, scan, "scan_"+to_string(count), Color(1,0,0)); // render scan
 		 
 		// perform localization
-		Eigen::Matrix4d transform = ICP(map, scan, location, 0); //TODO: make the iteration count greater than zero
+		Eigen::Matrix4d transform = ICP(map, scan, location, 10); //TODO: make the iteration count greater than zero
 		Pose estimate = getPose(transform);
 		// TODO: save estimate location and use it as starting pose for ICP next time
 		

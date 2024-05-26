@@ -4,14 +4,16 @@
 Eigen::Matrix4d transform2D(double theta, double xt, double yt){
 
 	Eigen::Matrix4d matrix = Eigen::Matrix4d::Identity ();
+    const auto cos_theta = cos(theta);
+    const auto sin_theta = sin(theta);
 
 	matrix(0, 3) = xt;
 	matrix(1, 3) = yt;
 
-	matrix(0, 0) = cos(theta);
-	matrix(0, 1) = -sin(theta);
-	matrix(1, 0) = sin(theta);
-	matrix(1, 1) = cos(theta);
+	matrix(0, 0) = cos_theta;
+	matrix(0, 1) = -sin_theta;
+	matrix(1, 0) = sin_theta;
+	matrix(1, 1) = cos_theta;
 
 	return matrix;
 }
