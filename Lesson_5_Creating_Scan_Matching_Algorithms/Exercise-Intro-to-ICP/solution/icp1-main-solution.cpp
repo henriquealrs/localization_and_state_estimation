@@ -31,8 +31,9 @@ Eigen::Matrix4d ICP(PointCloudT::Ptr target, PointCloudT::Ptr source, Pose start
   	
   	if (icp.hasConverged ())
   	{
-  		std::cout << "\nICP has converged, score is " << icp.getFitnessScore () << std::endl;
   		transformation_matrix = icp.getFinalTransformation ().cast<double>();
+  		std::cout << "\nICP has converged, score is " << icp.getFitnessScore () << 
+            "For transform\n " << transformation_matrix << std::endl;
   		transformation_matrix =  transformation_matrix * initTransform;
   		return transformation_matrix;
   	}
@@ -118,6 +119,7 @@ int main(){
 		// TODO: save estimate location and use it as starting pose for ICP next time
 		location = estimate;
 		locator->points.push_back(PointT(estimate.position.x, estimate.position.y, 0));
+        std::cout << "New position: " << locator->points.back() << "\n"; 
 		
 		// view transformed scan
 		// TODO: perform the transformation on the scan using transform from ICP

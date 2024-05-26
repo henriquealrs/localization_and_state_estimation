@@ -8,7 +8,6 @@
 using namespace std;
 
 #include <string>
-#include <sstream>
 #include "helper.h"
 
 #include <pcl/registration/icp.h>
@@ -23,17 +22,20 @@ Eigen::Matrix4d ICP(PointCloudT::Ptr target, PointCloudT::Ptr source, Pose start
     PointCloudT::Ptr transform_src = std::make_shared<PointCloudT>();
     pcl::transformPointCloud(*source, *transform_src, init_transform);
 
+	pcl::console::TicToc time;
+  	time.tic ();
     pcl::IterativeClosestPoint<PointT, PointT> icp;
     icp.setInputSource(transform_src);
     icp.setInputTarget(target);
     icp.setMaximumIterations(iterations);
-    PointCloudT icp_out;
-    icp.align(icp_out);
+    PointCloudT::Ptr icp_out(new PointCloudT);
+    icp.align(*icp_out);
     if(icp.hasConverged())
     {
-        const auto ret = icp.getFinalTransformation().cast<double>();
+        const decltype(transformation_matrix) ret = icp.getFinalTransformation().cast<double>();
         std::cout << "Converged (with score " << icp.getFitnessScore() << ") to:\n" << ret << "\n\n";
-        return ret;
+        transformation_matrix = ret * init_transform;
+        return transformation_matrix;
     }
     
     std::cout << "No Convergence\n";
@@ -116,12 +118,13 @@ int main(){
 		Pose estimate = getPose(transform);
         location = estimate;
 		locator->points.push_back(PointT(estimate.position.x, estimate.position.y, 0));
+        std::cout << "New position: " << locator->points.back() << "\n"; 
 		
 		// view transformed scan
         PointCloudT::Ptr transformed_pcl(new PointCloudT);
         pcl::transformPointCloud(*scan, *transformed_pcl, transform);
 		// TODO: render the correct scan
-        renderPointCloud(viewer, transformed_pcl, "Transformed Cloud", Color(255, 255, 0) , 10);
+        renderPointCloud(viewer, transformed_pcl,"ipc_scan_"+to_string(count), Color(0, 1, 0));
 		
 		count++;
 	}
