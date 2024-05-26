@@ -4,6 +4,7 @@
 
 #include <memory>
 #include <pcl/common/transforms.h>
+#include <pcl/point_cloud.h>
 using namespace std;
 
 #include <string>
@@ -111,15 +112,16 @@ int main(){
 		renderPointCloud(viewer, scan, "scan_"+to_string(count), Color(1,0,0)); // render scan
 		 
 		// perform localization
-		Eigen::Matrix4d transform = ICP(map, scan, location, 10); //TODO: make the iteration count greater than zero
+		Eigen::Matrix4d transform = ICP(map, scan, location, 50); //TODO: make the iteration count greater than zero
 		Pose estimate = getPose(transform);
-		// TODO: save estimate location and use it as starting pose for ICP next time
-		
+        location = estimate;
 		locator->points.push_back(PointT(estimate.position.x, estimate.position.y, 0));
 		
 		// view transformed scan
-		// TODO: perform the transformation on the scan using transform from ICP
+        PointCloudT::Ptr transformed_pcl(new PointCloudT);
+        pcl::transformPointCloud(*scan, *transformed_pcl, transform);
 		// TODO: render the correct scan
+        renderPointCloud(viewer, transformed_pcl, "Transformed Cloud", Color(255, 255, 0) , 10);
 		
 		count++;
 	}
