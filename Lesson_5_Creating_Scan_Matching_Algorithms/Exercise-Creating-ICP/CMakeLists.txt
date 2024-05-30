@@ -6,12 +6,13 @@ cmake_minimum_required (VERSION 3.10)
 
 # -g allows for gdb debugging
 # turn on -03 for best performance
-add_definitions(-std=c++14 -O3)
+add_definitions(-std=c++14 -O3  -Wfatal-errors)
 
 set(CXX_FLAGS "-pthread -fPIC")
-set(CMAKE_CXX_FLAGS "${CXX_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CXX_FLAGS} -I..")
 
 set(sources icp2-main.cpp helper.cpp)
+set(sources_solution solution/icp2-main-solution.cpp helper.cpp)
 
 find_package(PCL 1.2 REQUIRED)
 
@@ -24,5 +25,7 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 endif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 
 add_executable(icp ${sources} )
+add_executable(icp_solution ${sources_solution} )
 
 target_link_libraries(icp ${PCL_LIBRARIES})
+target_link_libraries(icp_solution ${PCL_LIBRARIES})

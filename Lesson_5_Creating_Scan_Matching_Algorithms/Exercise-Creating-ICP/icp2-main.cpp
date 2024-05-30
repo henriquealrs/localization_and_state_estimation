@@ -2,6 +2,10 @@
 // Dec 21 2020
 // Aaron Brown
 
+#include <algorithm>
+#include <iterator>
+#include <numeric>
+#include <pcl/common/transforms.h>
 using namespace std;
 
 #include <string>
@@ -88,15 +92,35 @@ double Score(vector<int> pairs, PointCloudT::Ptr target, PointCloudT::Ptr source
 vector<int> NN(PointCloudT::Ptr target, PointCloudT::Ptr source, Eigen::Matrix4d initTransform, double dist){
 	
 	vector<int> associations;
-
+    
 	// TODO: complete this function which returns a vector of target indicies that correspond to each source index inorder.
 	// E.G. source index 0 -> target index 32, source index 1 -> target index 5, source index 2 -> target index 17, ... 
 
 	// TODO: create a KDtree with target as input
+    pcl::KdTreeFLANN<PointT> kdtree;
+    kdtree.setInputCloud(target);
 
 	// TODO: transform source by initTransform
+    PointCloudT source_trans;
+    pcl::transformPointCloud(*source, source_trans, initTransform);
+    
 
 	// TODO loop through each transformed source point and using the KDtree find the transformed source point's nearest target point. Append the nearest point to associaitons 
+    for(size_t i = 0; i < source_trans.size(); ++i)
+    {
+        const auto& point = source_trans[i];
+        vector<int> idxs;
+        vector<float> sqr_dist;
+        kdtree.radiusSearch(point, dist, idxs, sqr_dist, 1);
+        if(idxs.size() > 0) {
+            associations.push_back(idxs[0]);
+            std::cout << "Dist " << sqr_dist[0] << ", ";
+        }
+        else {
+            associations.push_back(-1);
+        }
+    }
+    std::cout << "\n";
 
 	return associations;
 }
@@ -104,23 +128,64 @@ vector<int> NN(PointCloudT::Ptr target, PointCloudT::Ptr source, Eigen::Matrix4d
 vector<Pair> PairPoints(vector<int> associations, PointCloudT::Ptr target, PointCloudT::Ptr source, bool render, pcl::visualization::PCLVisualizer::Ptr& viewer){
 
 	vector<Pair> pairs;
+    pairs.reserve(associations.size());
 
 	// TODO: loop through each source point and using the corresponding associations append a Pair of (source point, associated target point)
+    for(size_t i = 0; i < associations.size(); ++i)
+    {
+        if(associations[i] < 0) continue;
+        const auto& src_pt = (*source)[i];
+        Point p1{src_pt.x, src_pt.y, src_pt.z};
 
+        const auto& targ_pt = (*target)[associations[i]];
+        Point p2{targ_pt.x, targ_pt.y, targ_pt.z};
+        pairs.push_back(Pair{p1, p2});
+    }
+    std::cout << "\n Pairs size: " << pairs.size() <<"\n";
 	return pairs;
 }
 
 Eigen::Matrix4d ICP(vector<int> associations, PointCloudT::Ptr target, PointCloudT::Ptr source, Pose startingPose, int iterations, pcl::visualization::PCLVisualizer::Ptr& viewer){
 
-  	Eigen::Matrix4d transformation_matrix = Eigen::Matrix4d::Identity();
+  	Eigen::Matrix4d transformation_matrix = transform2D(startingPose.rotation.yaw,
+            startingPose.position.x, startingPose.position.y);
 
   	// TODO: transform source by startingPose
+
   
   	// TODO: create matrices P and Q which are both 2 x 1 and represent mean point of pairs 1 and pairs 2 respectivley.
   	// In other words P is the mean point of source and Q is the mean point target 
   	// P = [ mean p1 x] Q = [ mean p2 x]
   	//	   [ mean p1 y]	    [ mean p2 y]
+  	// TODO: create matrices P and Q which are both 2 x 1 and represent mean point of pairs 1 and pairs 2 respectivley.
+  	// In other words P is the mean point of source and Q is the mean point target 
+  	// P = [ mean p1 x] Q = [ mean p2 x]
+  	//	   [ mean p1 y]	    [ mean p2 y]
+    Eigen::Matrix3f cov;
+    Eigen::Vector4f P_vec;
+    pcl::computeMeanAndCovarianceMatrix(*source, cov, P_vec);
+    Eigen::Vector2f P;
+    P(0,0) = P_vec(0, 0);
+    P(1,0) = P_vec(1, 0);
 
+    Eigen::Vector4f Q_vec;
+    pcl::computeMeanAndCovarianceMatrix(*source, cov, Q_vec);
+    Eigen::Vector2f Q;
+    Q(0,0) = Q_vec(0, 0);
+    Q(1,0) = Q_vec(1, 0);
+    std::cout << "Q: \n" << Q << "\n\n";
+
+    /*************************************************
+     * TODO: Benchmark this later *******************
+     * **********************************************/
+    Eigen::Vector2f init = Eigen::Vector2f::Zero();
+    auto my_Q = std::accumulate(source->cbegin(), source->cend(), init, []( auto sum, const auto& p2){
+            sum(0,0) = sum(0,0) + p2.x;
+            sum(1,0) = sum(1,0) + p2.y;
+            return  sum;
+    });
+    my_Q *= 1.0f/static_cast<float>(source->size());
+    std::cout << "My Q:\n" << my_Q << "\n\n";
   	// TODO: get pairs of points from PairPoints and create matrices X and Y which are both 2 x n where n is number of pairs.
   	// X is pair 1 x point with pair 2 x point for each column and Y is the same except for y points
   	// X = [p1 x0 , p1 x1 , p1 x2 , .... , p1 xn ] - [Px]   Y = [p2 x0 , p2 x1 , p2 x2 , .... , p2 xn ] - [Qx]
