@@ -6,9 +6,9 @@ cmake_minimum_required (VERSION 3.10)
 
 # -g allows for gdb debugging
 # turn on -03 for best performance
-add_definitions(-std=c++14 -O3  -Wfatal-errors)
+add_definitions(-std=c++14 -O0  -Wfatal-errors)
 
-set(CXX_FLAGS "-pthread -fPIC")
+set(CXX_FLAGS "-pthread -fPIC -g")
 set(CMAKE_CXX_FLAGS "${CXX_FLAGS} -I..")
 
 set(sources icp2-main.cpp helper.cpp)

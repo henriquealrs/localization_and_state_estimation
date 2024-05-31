@@ -3,6 +3,7 @@
 #include <pcl/kdtree/kdtree.h>
 #include <math.h>
 #include <vector>
+#include <ostream>
 
 typedef pcl::PointXYZ PointT;
 typedef pcl::PointCloud<PointT> PointCloudT;
@@ -20,10 +21,18 @@ struct Point{
 	Point(double setX, double setY, double setZ)
 		: x(setX), y(setY), z(setZ){}
 
-	void Print(){
-		cout << "x: " << x << " y: " << y << " z: " << z << endl;
+	std::ostream& Print(std::ostream& os) const {
+		return os << "(" << x << ", " << y << ", " << z << ")";
 	}
+    friend std::ostream& operator<<(std::ostream& os, const Point& p) {
+        return p.Print(os);
+    }
+
+    Point operator+(const Point& other) {
+        return Point{x + other.x, y + other.y, z + other.z};
+    }
 };
+
 
 struct Rotate{
 	double yaw, pitch, roll;
@@ -34,9 +43,12 @@ struct Rotate{
 	Rotate(double setYaw, double setPitch, double setRoll)
 		: yaw(setYaw), pitch(setPitch), roll(setRoll){}
 
-	void Print(){
-		cout << "yaw: " << yaw << " pitch: " << pitch << " roll: " << roll << endl;
-	}
+	std::ostream& Print(std::ostream& os) const {
+        return os << "(" << yaw << ", " << pitch << ", " << roll << ")";
+    }
+    friend std::ostream& operator<<(std::ostream& os, const Rotate& p) {
+        return p.Print(os);
+    }
 };
 
 struct Pose{
@@ -59,9 +71,9 @@ struct Pose{
 
 struct Pair{
 
-	Point p1;
-	Point p2;
-
+	Point p1{};
+	Point p2{};
+    Pair () : p1{}, p2{} {}
 	Pair(Point setP1, Point setP2)
 		: p1(setP1), p2(setP2){}
 };

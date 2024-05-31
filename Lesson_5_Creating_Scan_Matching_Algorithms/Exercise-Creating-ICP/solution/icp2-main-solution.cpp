@@ -165,6 +165,8 @@ Eigen::Matrix4d ICP(vector<int> associations, PointCloudT::Ptr target, PointClou
 
 	Q(0,0) = Q(0,0)/pairs.size();
 	Q(1,0) = Q(1,0)/pairs.size();
+    std::cout << "\n\nCentroids SOURCE P:\n" << P <<
+        "\n\nCentroids TARGET Q:" << Q << "\n\n";
 	int index = 0;
 	for(Pair pair : pairs){
 		X(0,index) = pair.p1.x - P(0,0);
@@ -174,12 +176,14 @@ Eigen::Matrix4d ICP(vector<int> associations, PointCloudT::Ptr target, PointClou
 		Y(1,index) = pair.p2.y - Q(1,0);
 		index++;
 	}
+    std::cout << X << "\n\n";
 
 	// compute best R and t from using SVD
 	Eigen::MatrixXd S  = X * Y.transpose();
 	JacobiSVD<MatrixXd> svd(S, ComputeFullV | ComputeFullU);
 	Eigen::MatrixXd D;
 	D.setIdentity(svd.matrixV().cols(), svd.matrixV().cols());
+    std::cout <<"Matrix V:\n" << svd.matrixV() << "\nMatrix U:\n" << svd.matrixU() << "\n*****\n\n";
 	D(svd.matrixV().cols()-1,svd.matrixV().cols()-1) = (svd.matrixV() * svd.matrixU().transpose() ).determinant();
 
 	Eigen::MatrixXd R  = svd.matrixV() * D * svd.matrixU().transpose();

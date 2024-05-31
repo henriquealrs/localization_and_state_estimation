@@ -2,8 +2,6 @@
 // Dec 21 2020
 // Aaron Brown
 
-#include <algorithm>
-#include <iterator>
 #include <numeric>
 #include <pcl/common/transforms.h>
 using namespace std;
@@ -93,14 +91,14 @@ vector<int> NN(PointCloudT::Ptr target, PointCloudT::Ptr source, Eigen::Matrix4d
 	
 	vector<int> associations;
     
-	// TODO: complete this function which returns a vector of target indicies that correspond to each source index inorder.
+	// complete this function which returns a vector of target indicies that correspond to each source index inorder.
 	// E.G. source index 0 -> target index 32, source index 1 -> target index 5, source index 2 -> target index 17, ... 
 
-	// TODO: create a KDtree with target as input
+	// create a KDtree with target as input
     pcl::KdTreeFLANN<PointT> kdtree;
     kdtree.setInputCloud(target);
 
-	// TODO: transform source by initTransform
+	// transform source by initTransform
     PointCloudT source_trans;
     pcl::transformPointCloud(*source, source_trans, initTransform);
     
@@ -125,12 +123,12 @@ vector<int> NN(PointCloudT::Ptr target, PointCloudT::Ptr source, Eigen::Matrix4d
 	return associations;
 }
 
-vector<Pair> PairPoints(vector<int> associations, PointCloudT::Ptr target, PointCloudT::Ptr source, bool render, pcl::visualization::PCLVisualizer::Ptr& viewer){
+vector<Pair> PairPoints(const vector<int>& associations, PointCloudT::Ptr& target, PointCloudT::Ptr& source, bool render, pcl::visualization::PCLVisualizer::Ptr& viewer){
 
 	vector<Pair> pairs;
     pairs.reserve(associations.size());
 
-	// TODO: loop through each source point and using the corresponding associations append a Pair of (source point, associated target point)
+	// loop through each source point and using the corresponding associations append a Pair of (source point, associated target point)
     for(size_t i = 0; i < associations.size(); ++i)
     {
         if(associations[i] < 0) continue;
@@ -140,69 +138,105 @@ vector<Pair> PairPoints(vector<int> associations, PointCloudT::Ptr target, Point
         const auto& targ_pt = (*target)[associations[i]];
         Point p2{targ_pt.x, targ_pt.y, targ_pt.z};
         pairs.push_back(Pair{p1, p2});
+        if( render){
+            viewer->removeShape(std::to_string(i));
+            renderRay(viewer, p1, p2, std::to_string(i), Color(0,1,0));
+        }
     }
     std::cout << "\n Pairs size: " << pairs.size() <<"\n";
-	return pairs;
+    return pairs;
 }
 
 Eigen::Matrix4d ICP(vector<int> associations, PointCloudT::Ptr target, PointCloudT::Ptr source, Pose startingPose, int iterations, pcl::visualization::PCLVisualizer::Ptr& viewer){
 
-  	Eigen::Matrix4d transformation_matrix = transform2D(startingPose.rotation.yaw,
-            startingPose.position.x, startingPose.position.y);
 
-  	// TODO: transform source by startingPose
+    // transform source by startingPose
+    Eigen::Matrix4d init_transform = transform3D(startingPose.rotation.yaw, 
+            startingPose.rotation.pitch, 
+            startingPose.rotation.pitch,
+            startingPose.position.x, 
+            startingPose.position.y, 
+            startingPose.position.z);
 
-  
-  	// TODO: create matrices P and Q which are both 2 x 1 and represent mean point of pairs 1 and pairs 2 respectivley.
-  	// In other words P is the mean point of source and Q is the mean point target 
-  	// P = [ mean p1 x] Q = [ mean p2 x]
-  	//	   [ mean p1 y]	    [ mean p2 y]
-  	// TODO: create matrices P and Q which are both 2 x 1 and represent mean point of pairs 1 and pairs 2 respectivley.
-  	// In other words P is the mean point of source and Q is the mean point target 
-  	// P = [ mean p1 x] Q = [ mean p2 x]
-  	//	   [ mean p1 y]	    [ mean p2 y]
-    Eigen::Matrix3f cov;
-    Eigen::Vector4f P_vec;
-    pcl::computeMeanAndCovarianceMatrix(*source, cov, P_vec);
-    Eigen::Vector2f P;
-    P(0,0) = P_vec(0, 0);
-    P(1,0) = P_vec(1, 0);
 
-    Eigen::Vector4f Q_vec;
-    pcl::computeMeanAndCovarianceMatrix(*source, cov, Q_vec);
-    Eigen::Vector2f Q;
-    Q(0,0) = Q_vec(0, 0);
-    Q(1,0) = Q_vec(1, 0);
-    std::cout << "Q: \n" << Q << "\n\n";
-
-    /*************************************************
-     * TODO: Benchmark this later *******************
-     * **********************************************/
-    Eigen::Vector2f init = Eigen::Vector2f::Zero();
-    auto my_Q = std::accumulate(source->cbegin(), source->cend(), init, []( auto sum, const auto& p2){
-            sum(0,0) = sum(0,0) + p2.x;
-            sum(1,0) = sum(1,0) + p2.y;
-            return  sum;
+    PointCloudT::Ptr transformed_source = std::make_shared<PointCloudT>();
+    pcl::transformPointCloud(*source, *transformed_source, init_transform);
+    auto pairs = PairPoints(associations, target, transformed_source, true, viewer);
+    auto centroids = std::accumulate(pairs.cbegin(), pairs.cend(), Pair(), 
+            [](Pair& pair_sum, const Pair& pair) {
+                Pair ret{pair_sum.p1 + pair.p1,  pair_sum.p2 + pair.p2};
+                return ret;
     });
-    my_Q *= 1.0f/static_cast<float>(source->size());
-    std::cout << "My Q:\n" << my_Q << "\n\n";
-  	// TODO: get pairs of points from PairPoints and create matrices X and Y which are both 2 x n where n is number of pairs.
+    
+  
+  	// create matrices P and Q which are both 2 x 1 and represent mean point of pairs 1 and pairs 2 respectivley.
+  	// In other words P is the mean point of source and Q is the mean point target 
+  	// P = [ mean p1 x] Q = [ mean p2 x]
+  	//	   [ mean p1 y]	    [ mean p2 y]
+  	// create matrices P and Q which are both 2 x 1 and represent mean point of pairs 1 and pairs 2 respectivley.
+  	// In other words P is the mean point of source and Q is the mean point target 
+  	// P = [ mean p1 x] Q = [ mean p2 x]
+  	//	   [ mean p1 y]	    [ mean p2 y]
+    Eigen::Vector2f P = Eigen::Vector2f::Zero();
+    P(0,0) = centroids.p1.x;
+    P(1,0) = centroids.p1.y;
+
+    Eigen::Vector2f Q = Eigen::Vector2f::Zero();
+    Q(0,0) = centroids.p2.x;
+    Q(1,0) = centroids.p2.y;
+
+    Q = Q / static_cast<float>(pairs.size()); 
+    P = P / static_cast<float>(pairs.size()); 
+
+  	// get pairs of points from PairPoints and create matrices X and Y which are both 2 x n where n is number of pairs.
   	// X is pair 1 x point with pair 2 x point for each column and Y is the same except for y points
   	// X = [p1 x0 , p1 x1 , p1 x2 , .... , p1 xn ] - [Px]   Y = [p2 x0 , p2 x1 , p2 x2 , .... , p2 xn ] - [Qx]
   	//     [p1 y0 , p1 y1 , p1 y2 , .... , p1 yn ]   [Py]       [p2 y0 , p2 y1 , p2 y2 , .... , p2 yn ]   [Qy]
+    Eigen::MatrixXf X(2, pairs.size());
+    Eigen::MatrixXf Y(2, pairs.size());
+    int idx = 0;
+    for(const auto& pair : pairs)
+    {
+        X(0, idx) = pair.p1.x - P(0,0);
+        X(1, idx) = pair.p1.y - P(1,0);
+        Y(0, idx) = pair.p2.x - Q(0,0);
+        Y(1, idx) = pair.p2.y - Q(1,0);
+        idx++;
+    }
 
-  	// TODO: create matrix S using equation 3 from the svd_rot.pdf. Note W is simply the identity matrix because weights are all 1
+  	// create matrix S using equation 3 from the svd_rot.pdf. Note W is simply the identity matrix because weights are all 1
+    auto S = X * Y.transpose();
 
-  	// TODO: create matrix R, the optimal rotation using equation 4 from the svd_rot.pdf and using SVD of S
+    Eigen::JacobiSVD<MatrixXf> svd(S, Eigen::ComputeFullV | Eigen::ComputeFullU);
+    const auto& V = svd.matrixV();
+    const auto& U = svd.matrixU();
 
-  	// TODO: create mtarix t, the optimal translatation using equation 5 from svd_rot.pdf
+    // /*********** my way **********/
+    // Eigen::Matrix2f R = V * U.transpose();
+    // Eigen::Matrix<float,2,1> t = Q - R * P;
+    // std::cout << "R:\n" << R << "\n t:\n" << t << "\n";
+    // Eigen::Matrix4d transformation_matrix = Eigen::Matrix4d::Identity();
+    // transformation_matrix.topLeftCorner(2, 2) =  R.cast<double>();
+    // transformation_matrix.topRightCorner(2, 1) = t.cast<double>();
+    // /*********** my way **********/
 
-  	// TODO: set transformation_matrix based on above R, and t matrices
-  	// [ R R 0 t]
-  	// [ R R 0 t]
-  	// [ 0 0 1 0]
-  	// [ 0 0 0 1]
+    std::cout <<"matrix v:\n" << V << "\nmatrix u:\n" << U << "\n*****\n\n";
 
+	Eigen::MatrixXf D;
+	D.setIdentity(V.cols(), V.cols());
+	D.bottomRightCorner(1, 1)(0,0) = (V * U.transpose() ).determinant();
+
+	Eigen::MatrixXf R  = V * D * U.transpose();
+	Eigen::MatrixXf t  = Q - R * P;
+
+    Eigen::Matrix4d transformation_matrix = Eigen::Matrix4d::Identity();
+    transformation_matrix.topLeftCorner(2, 2) =  R.cast<double>();
+    transformation_matrix.topRightCorner(2, 1) = t.cast<double>();
+    std::cout << "\n*************\ntransformation matrix:\n" << transformation_matrix
+        << "\n *** \n" << init_transform << "\n****************\n";
+    transformation_matrix = transformation_matrix * init_transform;
+    std::cout << "\n*************\ntransformation matrix final :\n" << transformation_matrix
+        << "\n *** \n" << transformation_matrix << "\n****************\n";
   	return transformation_matrix;
 
 }
