@@ -191,7 +191,7 @@ int main(){
 
 	typename pcl::PointCloud<PointT>::Ptr cloudFiltered (new pcl::PointCloud<PointT>);
 
-	// cloudFiltered = scanCloud; // TODO: remove this line
+	// cloudFiltered = scanCloud; //  remove this line
     pcl::VoxelGrid<PointT> vox_filter;
     vox_filter.setInputCloud(scanCloud);
     
@@ -210,7 +210,7 @@ int main(){
 
 		if( matching != Off){
 			if( matching == Icp)
-				transform = ICP(mapCloud, cloudFiltered, pose, 20); //TODO: change the number of iterations to positive number
+				transform = ICP(mapCloud, cloudFiltered, pose, 20); // change the number of iterations to positive number
   			pose = getPose(transform);
 			if( !tester.Displacement(pose) ){
 				if(matching == Icp)
