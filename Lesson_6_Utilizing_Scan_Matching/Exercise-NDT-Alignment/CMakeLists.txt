@@ -9,9 +9,10 @@ cmake_minimum_required (VERSION 3.10)
 add_definitions(-std=c++14 -O3)
 
 set(CXX_FLAGS "-pthread -fPIC -DNDEBUG -Wextra")
-set(CMAKE_CXX_FLAGS "${CXX_FLAGS} -Wl,-Bstatic -lboost_filesystem -Wl,-Bdynamic")
+set(CMAKE_CXX_FLAGS "${CXX_FLAGS} -I.. -Wl,-Bstatic -lboost_filesystem -Wl,-Bdynamic")
 
 set(sources sm2-main.cpp helper.cpp)
+set(sources_sol solution/sm2-main-solution.cpp helper.cpp)
 
 find_package(PCL 1.2 REQUIRED)
 
@@ -24,5 +25,7 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 endif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 
 add_executable(scan_matching_2 ${sources} )
+add_executable(scan_matching_2_sol ${sources_sol} )
 
 target_link_libraries(scan_matching_2 ${PCL_LIBRARIES} )
+target_link_libraries(scan_matching_2_sol ${PCL_LIBRARIES} )

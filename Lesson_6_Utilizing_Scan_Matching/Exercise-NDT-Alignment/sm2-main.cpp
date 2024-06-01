@@ -4,6 +4,7 @@
 
 using namespace std;
 #include <string>
+#include <exception>
 #include <pcl/io/pcd_io.h>
 #include <pcl/visualization/pcl_visualizer.h>
 #include <pcl/filters/voxel_grid.h>
@@ -64,14 +65,32 @@ void keyboardEventOccurred(const pcl::visualization::KeyboardEvent &event, void*
 
 }
 
-Eigen::Matrix4d NDT(pcl::NormalDistributionsTransform<pcl::PointXYZ, pcl::PointXYZ> ndt, PointCloudT::Ptr source, Pose startingPose, int iterations){
+Eigen::Matrix4d NDT(pcl::NormalDistributionsTransform<pcl::PointXYZ, pcl::PointXYZ> ndt,
+        PointCloudT::Ptr source,
+        Pose startingPose,
+        int iterations){
 
   	Eigen::Matrix4d transformation_matrix = Eigen::Matrix4d::Identity ();
 
-  	// TODO: Implement the PCL NDT function and return the correct transformation matrix
-  	// .....
+    Eigen::Matrix4d init_trans = transform3D(
+            startingPose.rotation.yaw,
+            startingPose.rotation.pitch,
+            startingPose.rotation.roll,
+            startingPose.position.x,
+            startingPose.position.y,
+            startingPose.position.z);
+    
+    ndt.setInputSource(source);
+    ndt.setMaximumIterations(iterations);
+    PointCloudT::Ptr transformed_source = std::make_shared<PointCloudT>();
+    ndt.align(*source, init_trans.cast<float>());
+    if(!ndt.hasConverged())
+    {
+        std::cout << "Warning did not converge\n";
+        return Eigen::Matrix4d::Identity();
+    }
   	
-  	return transformation_matrix;
+  	return ndt.getFinalTransformation().cast<double>();
 
 }
 
@@ -164,12 +183,18 @@ int main(){
 
 	typename pcl::PointCloud<PointT>::Ptr cloudFiltered (new pcl::PointCloud<PointT>);
 
-	cloudFiltered = scanCloud; // TODO: remove this line
 	//TODO: Create voxel filter for input scan and save to cloudFiltered
+    pcl::VoxelGrid<PointT> vox_filt;
+    vox_filt.setInputCloud(scanCloud);
+    vox_filt.setLeafSize(0.5, 0.5, 0.5);
+    vox_filt.filter(*cloudFiltered);
 	// ......
 
 	pcl::NormalDistributionsTransform<pcl::PointXYZ, pcl::PointXYZ> ndt;
 	//TODO: Set resolution and point cloud target (map) for ndt
+    ndt.setStepSize(1);
+    ndt.setResolution(1);
+    ndt.setInputTarget(mapCloud);
 	// ......
 
 	PointCloudT::Ptr transformed_scan (new PointCloudT);
@@ -181,7 +206,7 @@ int main(){
 
 		if( matching != Off){
 			if( matching == Ndt)
-				transform = NDT(ndt, cloudFiltered, pose, 0); //TODO: change the number of iterations to positive number
+				transform = NDT(ndt, cloudFiltered, pose, 5); //TODO: change the number of iterations to positive number
   			pose = getPose(transform);
 			if( !tester.Displacement(pose) ){
 				if(matching == Ndt)
