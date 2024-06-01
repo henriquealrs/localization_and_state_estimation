@@ -2,6 +2,7 @@
 // Dec 21 2020
 // Aaron Brown
 
+#include <pcl/common/centroid.h>
 using namespace std;
 
 #include <string>
@@ -61,7 +62,8 @@ void keyboardEventOccurred(const pcl::visualization::KeyboardEvent &event, void*
 
 double Probability(Eigen::MatrixXd X, Eigen::MatrixXd Q, Eigen::MatrixXd S){
 	// TODO: calculate the probibility of the point given mean and standard deviation
-	return 0;
+    const auto diff = X - Q;
+	return exp(-0.5 * ( diff.transpose() * S.inverse() * diff)(0,0));
 }
 
 struct Cell{
@@ -187,14 +189,14 @@ struct Grid{
 Cell PDF(PointCloudT::Ptr input, int res, pcl::visualization::PCLVisualizer::Ptr& viewer){
 
 	// TODO: Calculate the 2 x 1 matrix Q, which is the mean of the input points
-	Eigen::MatrixXd Q(2,1);
-	Q << Eigen::MatrixXd::Zero(2,1);
-	
+    Eigen::Matrix3d cov;
+    Eigen::Vector4d mean;
+    pcl::computeMeanAndCovarianceMatrix(*input, cov, mean);
+	Eigen::MatrixXd Q = mean.topLeftCorner(2,1);
+	Eigen::MatrixXd S = cov.topLeftCorner(2,2);
 
-	// TODO: Calculate the 2 x 2 matrix S, which is standard deviation of the input points
-	Eigen::MatrixXd S(2,2);
-	S << Eigen::MatrixXd::Zero(2,2);
-	
+    std::cout << "S = \n" << S << "\n\n";
+    std::cout << "Q = \n" << Q << "\n\n";
 
 	PointCloudTI::Ptr pdf(new PointCloudTI);
 	for(double i = 0.0; i <= 10.0; i += 10.0/double(res)){
@@ -221,13 +223,22 @@ Cell PDF(PointCloudT::Ptr input, int res, pcl::visualization::PCLVisualizer::Ptr
 }
 
 template<typename Derived>
-void NewtonsMethod(PointT point, double theta, Cell cell, Eigen::MatrixBase<Derived>& g_previous, Eigen:: MatrixBase<Derived>& H_previous){
+void NewtonsMethod(PointT point, double theta, const Cell& cell, Eigen::MatrixBase<Derived>& g_previous, Eigen:: MatrixBase<Derived>& H_previous){
 
 	// TODO: Get the Q and S matrices from cell, invert S matrix
+    const auto& Q = cell.Q;
+    const auto& S = cell.S;
+
+    auto S_inv = S.inverse();
 
 	// TODO: make a 2 x 1 matrix from input point
+    Eigen::MatrixXd X(2,1);
+    X(0,0) = point.x;
+    X(1,0) = point.y;
 	
 	// TODO: calculate matrix q from X and Q
+    auto q = X - Q;
+
 	
 	// TODO: calculate the 3 2 x 1 partial derivative matrices
 	// each with respect to x, y, and theta

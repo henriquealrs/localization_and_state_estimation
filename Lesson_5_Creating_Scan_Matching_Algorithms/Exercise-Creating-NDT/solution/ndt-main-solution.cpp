@@ -1,5 +1,3 @@
-// Udacity C3 Localization
-// Dec 21 2020
 // Aaron Brown
 
 using namespace std;
@@ -210,6 +208,9 @@ Cell PDF(PointCloudT::Ptr input, int res, pcl::visualization::PCLVisualizer::Ptr
 	S(0,1) = S(0,1)/input->points.size();
 	S(1,0) = S(1,0)/input->points.size();
 	S(1,1) = S(1,1)/input->points.size();
+
+    std::cout << "Q = \n" << Q << "\n\n";
+    std::cout << "S = \n" << S << "\n\n";
 
 	PointCloudTI::Ptr pdf(new PointCloudTI);
 	for(double i = 0.0; i <= 10.0; i += 10.0/double(res)){

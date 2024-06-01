@@ -11,7 +11,7 @@ typedef pcl::PointCloud<PointTI> PointCloudTI;
 
 using namespace std;
 
-const double pi = M_PI;
+constexpr double pi = M_PI;
 
 struct Point{
 	double x, y, z;

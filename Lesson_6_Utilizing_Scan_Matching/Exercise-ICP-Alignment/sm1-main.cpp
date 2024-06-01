@@ -2,6 +2,9 @@
 // Dec 21 2020
 // Aaron Brown
 
+#include <iostream>
+#include <memory>
+#include <pcl/common/transforms.h>
 using namespace std;
 #include <string>
 #include <pcl/io/pcd_io.h>
@@ -64,15 +67,39 @@ void keyboardEventOccurred(const pcl::visualization::KeyboardEvent &event, void*
 
 }
 
-Eigen::Matrix4d ICP(PointCloudT::Ptr target, PointCloudT::Ptr source, Pose startingPose, int iterations){
+Eigen::Matrix4d ICP(const PointCloudT::Ptr& target, const PointCloudT::Ptr& source, Pose startingPose, int iterations)
+{
+    auto init_transform = transform3D(
+            startingPose.rotation.yaw, 
+            startingPose.rotation.pitch, 
+            startingPose.rotation.roll, 
+            startingPose.position.x, 
+            startingPose.position.y, 
+            startingPose.position.z); 
 
-  	Eigen::Matrix4d transformation_matrix = Eigen::Matrix4d::Identity ();
+    
+    PointCloudT::Ptr transformed_src = std::make_shared<PointCloudT>();
+    pcl::transformPointCloud(*source, *transformed_src, init_transform);
 
-  	// TODO: Implement the PCL ICP function and return the correct transformation matrix
-  	// .....
-  	
-  	return transformation_matrix;
+    pcl::IterativeClosestPoint<PointCloudT::PointType, PointCloudT::PointType> icp;
+    icp.setInputSource(transformed_src);
+    icp.setInputTarget(target);
+    icp.setMaximumIterations(iterations);
+	icp.setMaxCorrespondenceDistance (2);
 
+    PointCloudT::Ptr result = std::make_shared<PointCloudT>();
+    icp.align(*result);
+    if(icp.hasConverged())
+    {
+        Eigen::Matrix4d transformation = icp.getFinalTransformation().cast<double>();
+        return transformation * init_transform;
+    }
+    else
+    {
+        std::cout << "ERROR: ICP has not converged\n\n";
+    }
+
+    return Eigen::Matrix4d::Identity();   
 }
 
 void drawCar(Pose pose, int num, Color color, double alpha, pcl::visualization::PCLVisualizer::Ptr& viewer){
@@ -164,9 +191,15 @@ int main(){
 
 	typename pcl::PointCloud<PointT>::Ptr cloudFiltered (new pcl::PointCloud<PointT>);
 
-	cloudFiltered = scanCloud; // TODO: remove this line
-	//TODO: Create voxel filter for input scan and save to cloudFiltered
-	// ......
+	// cloudFiltered = scanCloud; // TODO: remove this line
+    pcl::VoxelGrid<PointT> vox_filter;
+    vox_filter.setInputCloud(scanCloud);
+    
+    float leaf_size = 0.0f;
+    std::cout << "Set leaf size: ";
+    std::cin >> leaf_size;
+    vox_filter.setLeafSize(leaf_size, leaf_size, leaf_size);
+    vox_filter.filter(*cloudFiltered);
 
 	PointCloudT::Ptr transformed_scan (new PointCloudT);
 	Tester tester;
@@ -177,7 +210,7 @@ int main(){
 
 		if( matching != Off){
 			if( matching == Icp)
-				transform = ICP(mapCloud, cloudFiltered, pose, 0); //TODO: change the number of iterations to positive number
+				transform = ICP(mapCloud, cloudFiltered, pose, 20); //TODO: change the number of iterations to positive number
   			pose = getPose(transform);
 			if( !tester.Displacement(pose) ){
 				if(matching == Icp)
